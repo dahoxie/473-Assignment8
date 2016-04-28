@@ -1,6 +1,7 @@
-var app = require('express')(),
+var express = require("express"),
+	app = express(),
     server = require('http').Server(app),
-	mongoose = require("mongoose"),
+    mongoose = require("mongoose"),
     io = require("socket.io")(server);
 
 app.use(express.static(__dirname + "/client"));
@@ -12,63 +13,40 @@ mongoose.connect('mongodb://localhost/amazeriffic');
 // This is our mongoose model for todos
 var ToDoSchema = mongoose.Schema({
     description: String,
-    tags: [ String ]
+    tags: [String]
 });
 
 var ToDo = mongoose.model("ToDo", ToDoSchema);
 
 server.listen(3000);
 
-io.on('connection', function (socket) {
-  socket.emit('news', { hello: 'world' });
-  socket.on('itemUpdate', function (data) {
-    console.log(data);
-	var newToDo = new ToDo({"description":req.body.description, "tags":req.body.tags});
-    newToDo.save(function (err, result) {
-	if (err !== null) {
-	    // the element did not get saved!
-	    console.log(err);
-	    res.send("ERROR");
-	} else {
-	    // our client expects *all* of the todo items to be returned, so we'll do
-	    // an additional request to maintain compatibility
-	    ToDo.find({}, function (err, result) {
-		if (err !== null) {
-		    // the element did not get saved!
-		    res.send("ERROR");
-		}
-		res.json(result);
-	    });
-	}
-    });       
-  });
-});
+var connectionList = [];
+io.on('connection', function(socket) {
+    connectionList.push(socket);
+    socket.on('itemUpdate', function(data) {
+        console.log(data);
+        var newToDo = new ToDo({
+            "description": data.description,
+            "tags": data.tags
+        });
+        newToDo.save(function(err, result) {
 
-app.get("/todos.json", function (req, res) {
-    ToDo.find({}, function (err, toDos) {
-	res.json(toDos);
+            ToDo.find({}, function(err, result) {
+                connectionList.forEach(function(nextSocket) {
+                    nextSocket.emit('itemUpdate', result);
+
+                });
+
+            });
+
+        });
+    });
+
+    socket.on('getToDos', function(data) {
+        console.log(data);
+
+        ToDo.find({}, function(err, toDos) {
+            socket.emit('getToDos', toDos);
+        });
     });
 });
-
-app.post("/todos", function (req, res) {
-    console.log(req.body);
-    var newToDo = new ToDo({"description":req.body.description, "tags":req.body.tags});
-    newToDo.save(function (err, result) {
-	if (err !== null) {
-	    // the element did not get saved!
-	    console.log(err);
-	    res.send("ERROR");
-	} else {
-	    // our client expects *all* of the todo items to be returned, so we'll do
-	    // an additional request to maintain compatibility
-	    ToDo.find({}, function (err, result) {
-		if (err !== null) {
-		    // the element did not get saved!
-		    res.send("ERROR");
-		}
-		res.json(result);
-	    });
-	}
-    });
-});
-

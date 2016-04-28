@@ -1,17 +1,20 @@
-var main = function (toDoObjects) {
+var socket = io.connect('http://localhost:3000');
+
+
+var main = function(toDoObjects) {
     "use strict";
     console.log("SANITY CHECK");
-    var toDos = toDoObjects.map(function (toDo) {
-          // we'll just return the description
-          // of this toDoObject
-          return toDo.description;
+    var toDos = toDoObjects.map(function(toDo) {
+        // we'll just return the description
+        // of this toDoObject
+        return toDo.description;
     });
 
-    $(".tabs a span").toArray().forEach(function (element) {
+    $(".tabs a span").toArray().forEach(function(element) {
         var $element = $(element);
 
         // create a click handler for this element
-        $element.on("click", function () {
+        $element.on("click", function() {
             var $content,
                 $input,
                 $button,
@@ -23,20 +26,20 @@ var main = function (toDoObjects) {
 
             if ($element.parent().is(":nth-child(1)")) {
                 $content = $("<ul>");
-                for (i = toDos.length-1; i >= 0; i--) {
+                for (i = toDos.length - 1; i >= 0; i--) {
                     $content.append($("<li>").text(toDos[i]));
                 }
             } else if ($element.parent().is(":nth-child(2)")) {
                 $content = $("<ul>");
-                toDos.forEach(function (todo) {
+                toDos.forEach(function(todo) {
                     $content.append($("<li>").text(todo));
                 });
 
             } else if ($element.parent().is(":nth-child(3)")) {
                 var tags = [];
 
-                toDoObjects.forEach(function (toDo) {
-                    toDo.tags.forEach(function (tag) {
+                toDoObjects.forEach(function(toDo) {
+                    toDo.tags.forEach(function(tag) {
                         if (tags.indexOf(tag) === -1) {
                             tags.push(tag);
                         }
@@ -44,26 +47,29 @@ var main = function (toDoObjects) {
                 });
                 console.log(tags);
 
-                var tagObjects = tags.map(function (tag) {
+                var tagObjects = tags.map(function(tag) {
                     var toDosWithTag = [];
 
-                    toDoObjects.forEach(function (toDo) {
+                    toDoObjects.forEach(function(toDo) {
                         if (toDo.tags.indexOf(tag) !== -1) {
                             toDosWithTag.push(toDo.description);
                         }
                     });
 
-                    return { "name": tag, "toDos": toDosWithTag };
+                    return {
+                        "name": tag,
+                        "toDos": toDosWithTag
+                    };
                 });
 
                 console.log(tagObjects);
 
-                tagObjects.forEach(function (tag) {
+                tagObjects.forEach(function(tag) {
                     var $tagName = $("<h3>").text(tag.name),
                         $content = $("<ul>");
 
 
-                    tag.toDos.forEach(function (description) {
+                    tag.toDos.forEach(function(description) {
                         var $li = $("<li>").text(description);
                         $content.append($li);
                     });
@@ -79,19 +85,23 @@ var main = function (toDoObjects) {
                     $tagLabel = $("<p>").text("Tags: "),
                     $button = $("<span>").text("+");
 
-                $button.on("click", function () {
+                $button.on("click", function() {
                     var description = $input.val(),
                         tags = $tagInput.val().split(","),
-                        newToDo = {"description":description, "tags":tags};
+                        newToDo = {
+                            "description": description,
+                            "tags": tags
+                        };
 
-                    $.post("todos", newToDo, function (result) {
-                        console.log(result);
-
+                    socket.emit("itemUpdate", newToDo);
+                    socket.on("itemUpdate", function(data) {
+                        alert("Item added");
+                        console.log(data);
                         //toDoObjects.push(newToDo);
-                        toDoObjects = result;
+                        toDoObjects = data;
 
                         // update toDos
-                        toDos = toDoObjects.map(function (toDo) {
+                        toDos = toDoObjects.map(function(toDo) {
                             return toDo.description;
                         });
 
@@ -101,10 +111,10 @@ var main = function (toDoObjects) {
                 });
 
                 $content = $("<div>").append($inputLabel)
-                                     .append($input)
-                                     .append($tagLabel)
-                                     .append($tagInput)
-                                     .append($button);
+                    .append($input)
+                    .append($tagLabel)
+                    .append($tagInput)
+                    .append($button);
             }
 
             $("main .content").append($content);
@@ -116,8 +126,10 @@ var main = function (toDoObjects) {
     $(".tabs a:first-child span").trigger("click");
 };
 
-$(document).ready(function () {
-    $.getJSON("todos.json", function (toDoObjects) {
-        main(toDoObjects);
+$(document).ready(function() {
+    socket.emit("getToDos", "");
+    socket.on("getToDos", function(data) {
+        console.log(data);
+        main(data);
     });
 });
